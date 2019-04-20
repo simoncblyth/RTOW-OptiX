@@ -244,15 +244,56 @@ void setMissProgram()
   g_context->setMissProgram(/*program ID:*/0, missProgram);
 }
 
-int main(int ac, char **av)
+
+
+#include "RT_CHECK_ERROR.h"
+#include "S_get_option.hh"
+
+int main(int argc, char **argv)
 {
+  const char* rtx_default = "-1" ; 
+  const char* stack_default = "3000" ; 
+  const char* size_default = "1200,800" ; 
+  const char* repeat_default = "5" ; 
+
+  int rtx = get_option<int>( argc, argv, "--rtx", rtx_default );   
+  int stack = get_option<int>( argc, argv, "--stack", stack_default );   
+  int width = get_option<int>(argc, argv, "--size,0", size_default ) ;  
+  int height = get_option<int>(argc, argv, "--size,1", size_default ) ;  
+  int repeat = get_option<int>(argc, argv, "--repeat", repeat_default ) ;  
+
+  std::cout 
+          << argv[0]
+          << " rtx " << rtx 
+          << " stack " << stack 
+          << " width " << width 
+          << " height " << height 
+          << " repeat " << repeat
+          << " rtx_default " << rtx_default
+          << " stack_default " << stack_default
+          << " size_default " << size_default
+          << " repeat_default " << repeat_default
+          << std::endl
+           ; 
+
+  if( rtx != -1)
+  { 
+      RT_CHECK_ERROR(rtGlobalSetAttribute(RT_GLOBAL_ATTRIBUTE_ENABLE_RTX, sizeof(rtx), &rtx));
+      int rtx2 = -1 ;  
+      RT_CHECK_ERROR(rtGlobalGetAttribute(RT_GLOBAL_ATTRIBUTE_ENABLE_RTX, sizeof(rtx2), &rtx2));
+      assert( rtx == rtx2 ); 
+  }
+
+
+
+
   // before doing anything else: create a optix context
   g_context = optix::Context::create();
   g_context->setRayTypeCount(1);
-  g_context->setStackSize( 3000 );
+  g_context->setStackSize( stack );
   
   // define some image size ...
-  const size_t Nx = 1200, Ny = 800;
+  const size_t Nx = width, Ny = height ;
 
   // create - and set - the camera
   const vec3f lookfrom(13, 2, 3);
@@ -301,14 +342,35 @@ int main(int ac, char **av)
   }
 #endif
 
-  // render the frame (and time it)
-  auto t0 = std::chrono::system_clock::now();
-  renderFrame(Nx, Ny);
-  auto t1 = std::chrono::system_clock::now();
-  std::cout << "done rendering, which took "
-            << std::setprecision(4) << std::chrono::duration<double>(t1-t0).count()
-            << " seconds (for " << numSamples << " paths per pixel)" << std::endl;
-       
+
+  double avg(0); 
+
+  for( int r=0 ; r < repeat ; r++)
+  {  
+      // render the frame (and time it)
+      auto t0 = std::chrono::system_clock::now();
+      renderFrame(Nx, Ny);
+      auto t1 = std::chrono::system_clock::now();
+
+      double t = std::chrono::duration<double>(t1-t0).count() ; 
+      avg += t ; 
+      std::cout 
+                << std::setw(27)
+                << "done rendering, which took "
+                << std::setprecision(4) << t 
+                << " seconds (for " << numSamples << " paths per pixel)" 
+                << " r " << r 
+                << std::endl;
+  }
+  avg /= double(repeat) ; 
+  
+  std::cout << std::setw(27) 
+            << " avg " 
+            << std::setprecision(4) << avg
+            << std::endl;
+ 
+
+    
   // ... map it, save it, and cleanly unmap it after reading...
   const vec3f *pixels = (const vec3f *)fb->map();
   savePPM("finalChapter.ppm",Nx,Ny,pixels);

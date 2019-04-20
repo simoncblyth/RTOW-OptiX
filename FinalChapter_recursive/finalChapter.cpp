@@ -244,15 +244,53 @@ void setMissProgram()
   g_context->setMissProgram(/*program ID:*/0, missProgram);
 }
 
-int main(int ac, char **av)
+
+
+
+#include "RT_CHECK_ERROR.h"
+#include "S_get_option.hh"
+
+
+int main(int argc, char **argv)
 {
+  const char* rtx_default = "-1" ; 
+  const char* stack_default = "8000" ; 
+  const char* size_default = "1200,800" ; 
+
+  int rtx = get_option<int>( argc, argv, "--rtx", rtx_default );   
+  int stack = get_option<int>( argc, argv, "--stack", stack_default );   
+  int width = get_option<int>(argc, argv, "--size,0", size_default ) ;  
+  int height = get_option<int>(argc, argv, "--size,1", size_default ) ;  
+
+  std::cout 
+          << argv[0]
+          << " rtx " << rtx 
+          << " stack " << stack 
+          << " width " << width 
+          << " height " << height 
+          << " rtx_default " << rtx_default
+          << " stack_default " << stack_default
+          << " size_default " << size_default
+          << std::endl
+           ; 
+
+  if( rtx != -1)
+  { 
+      RT_CHECK_ERROR(rtGlobalSetAttribute(RT_GLOBAL_ATTRIBUTE_ENABLE_RTX, sizeof(rtx), &rtx));
+      int rtx2 = -1 ;  
+      RT_CHECK_ERROR(rtGlobalGetAttribute(RT_GLOBAL_ATTRIBUTE_ENABLE_RTX, sizeof(rtx2), &rtx2));
+      assert( rtx == rtx2 ); 
+  }
+
+
+
   // before doing anything else: create a optix context
   g_context = optix::Context::create();
   g_context->setRayTypeCount(1);
-  g_context->setStackSize( 8000 );
+  g_context->setStackSize( stack );
   
   // define some image size ...
-  const size_t Nx = 1200, Ny = 800;
+  const size_t Nx = width, Ny = height ;
 
   // create - and set - the camera
   const vec3f lookfrom(13, 2, 3);
